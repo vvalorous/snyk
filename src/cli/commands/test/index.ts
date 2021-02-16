@@ -142,6 +142,7 @@ async function test(...args: MethodArgs): Promise<TestCommandResult> {
         res = await iacLocalExecution.test(path, options);
       } else {
         res = await snyk.test(path, testOpts);
+        //TODO: if fix => call snyk-fix
       }
       if (testOpts.iacDirFiles) {
         options.iacDirFiles = testOpts.iacDirFiles;
