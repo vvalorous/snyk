@@ -1,4 +1,6 @@
 export = test;
+import * as fs from 'fs';
+import * as pathLib from 'path';
 
 const cloneDeep = require('lodash.clonedeep');
 const assign = require('lodash.assign');
@@ -36,7 +38,11 @@ import {
   getIacDisplayedOutput,
   getIacDisplayErrorFileOutput,
 } from './iac-output';
-import { getEcosystemForTest, testEcosystem } from '../../../lib/ecosystems';
+import {
+  getEcosystemForTest,
+  testEcosystem,
+  TestResponseGood,
+} from '../../../lib/ecosystems';
 import { isMultiProjectScan } from '../../../lib/is-multi-project-scan';
 import {
   IacProjectType,
@@ -53,6 +59,8 @@ import {
 } from './formatters/format-test-results';
 
 import * as iacLocalExecution from './iac-local-execution';
+import { DepGraphData } from '@snyk/dep-graph';
+import { fstat } from 'fs';
 
 const debug = Debug('snyk-test');
 const SEPARATOR = '\n-------------------------------------------------------\n';
@@ -142,6 +150,8 @@ async function test(...args: MethodArgs): Promise<TestCommandResult> {
         res = await iacLocalExecution.test(path, options);
       } else {
         res = await snyk.test(path, testOpts);
+        const newRes = convertLegacyTestResultToTestResult(res, path);
+        console.log(JSON.stringify(newRes, null, 2), options);
         //TODO: if fix => call snyk-fix
       }
       if (testOpts.iacDirFiles) {
@@ -357,6 +367,60 @@ async function test(...args: MethodArgs): Promise<TestCommandResult> {
     stringifiedJsonData,
     stringifiedSarifData,
   );
+}
+
+function convertLegacyTestResultToTestResult(
+  testResults: (TestResult | TestResult[]) | Error,
+  root: string,
+): TestResponseGood[] {
+  if (testResults instanceof Error) {
+    return [];
+  }
+  const oldResults = Array.isArray(testResults) ? testResults : [testResults];
+  return oldResults.map((res) => {
+    return {
+      // TODO: split into 2 functions 1 to convert to ScanResult and another
+      // to convert to TestDependenciesResponse
+      workspace: {
+        readFile: async (path: string) => {
+          console.log(pathLib.resolve(root, path));
+          return fs.readFileSync(
+            pathLib.resolve(root, path),
+            'utf8',
+          );
+        },
+      },
+      scanResult: {
+        identity: {
+          type: res.packageManager!,
+          targetFile: res.targetFile || res.displayTargetFile, // TODO: this is because not all plugins send it back
+        },
+        name: res.projectName, // TODO: confirm
+        facts: [
+          // TODO: facts
+        ],
+        policy: '', // TODO:
+      },
+      response: {
+        result: {
+          issuesData: {}, // TODO:
+          issues: [], // TODO:
+          // docker: res.docker, TODO:// convert this
+          remediation: res.remediation,
+          depGraphData: {} as DepGraphData, // TODO: need to get this from the scan
+        },
+        meta: {
+          isPublic: !res.isPrivate,
+          isLicensesEnabled: false, // figure it out yolo
+          licensesPolicy: undefined, // TODO: fix this
+          projectId: res.projectId,
+          ignoreSettings: undefined, // TODO: fix this
+          policy: '', // TODO:
+          org: res.org,
+        },
+      },
+    };
+  });
 }
 
 function shouldFail(vulnerableResults: any[], failOn: FailOn) {
