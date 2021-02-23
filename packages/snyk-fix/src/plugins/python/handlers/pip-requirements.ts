@@ -23,7 +23,7 @@ export async function pipRequirementsTxt(
       } else {
         handlerResult.skipped.push({
           original: entity,
-          userMessage: isSupportedResponse.reason,
+          userMessage: `${entity.scanResult.identity.targetFile}:\n ${isSupportedResponse.reason}`,
         });
       }
     } catch (e) {
@@ -59,7 +59,7 @@ export async function isSupported(
       reason: 'Requirements with -r or -c directive are not yet supported',
     };
   }
-  // TODO: test when pins are empty
+
   if (!remediationData.pin || Object.keys(remediationData.pin).length === 0) {
     return {
       supported: false,
@@ -95,7 +95,6 @@ export async function fixIndividualRequirementsTxt(
     throw new Error('Fixing is not available without remediation data');
   }
   if (!fileName) {
-    // TODO: is this possible?
     throw new Error('Requirements file name required');
   }
   const requirementsTxt = await entity.workspace.readFile(fileName);
@@ -105,6 +104,9 @@ export async function fixIndividualRequirementsTxt(
     remediationData.pin,
   );
   await entity.workspace.writeFile(fileName, updatedManifest);
-  // TODO: generate fixes per file + failed per file to generate clear output later
-  return { original: entity, userMessage: appliedChangesSummary };
+
+  return {
+    original: entity,
+    userMessage: `${entity.scanResult.identity.targetFile}:\n  ${appliedChangesSummary}`,
+  };
 }

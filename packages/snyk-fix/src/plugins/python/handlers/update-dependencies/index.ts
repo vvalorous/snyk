@@ -25,7 +25,7 @@ export function updateDependencies(
 
   // TODO: record failed upgrades & pins and send them back
   // to be shown in the UI,  do not break PR creation
-  const updatedRequirements = applyUpgrades(
+  const { updatedRequirements, updatedSummary } = applyUpgrades(
     parsedRequirementsData,
     lowerCasedUpgrades,
   );
@@ -34,18 +34,23 @@ export function updateDependencies(
     .map(({ name }) => name && name.toLowerCase())
     .filter(isDefined);
 
-  let updatedManifest = applyPins(
-    updatedRequirements,
+  const { pinnedRequirements, pinnedSummary } = applyPins(
     topLevelDeps,
     lowerCasedUpgrades,
   );
 
+  let updatedManifest = [...updatedRequirements, ...pinnedRequirements].join(
+    '\n',
+  );
   // This is a bit of a hack, but an easy one to follow. If a file ends with a
   // new line, ensure we keep it this way. Don't hijack customers formatting.
   if (requirementsTxt.endsWith('\n')) {
     updatedManifest += '\n';
   }
-  return { updatedManifest, appliedChangesSummary: 'TODO' };
+  return {
+    updatedManifest,
+    appliedChangesSummary: `${updatedSummary}\n${pinnedSummary}`,
+  };
 }
 
 // TS is not capable of determining when Array.filter has removed undefined
@@ -55,10 +60,10 @@ function isDefined<T>(t: T | undefined): t is T {
 }
 
 function applyPins(
-  deps: string[],
   topLevelDeps: string[],
   lowerCasedUpgrades: { [upgradeFrom: string]: string },
-) {
+): { pinnedRequirements: string[]; pinnedSummary: string } {
+  let pinnedSummary = '';
   const pinnedRequirements = Object.keys(lowerCasedUpgrades)
     .map((pkgNameAtVersion) => {
       const pkgName = pkgNameAtVersion.split('@')[0];
@@ -69,17 +74,23 @@ function applyPins(
       }
 
       const version = lowerCasedUpgrades[pkgNameAtVersion].split('@')[1];
-      return `${pkgName}>=${version} # not directly required, pinned by Snyk to avoid a vulnerability`;
+      const newRequirement = `${pkgName}>=${version}`;
+      pinnedSummary += `Pinned ${pkgNameAtVersion} to ${newRequirement}\n`;
+      return `${newRequirement} # not directly required, pinned by Snyk to avoid a vulnerability`;
     })
     .filter(isDefined);
 
-  return [...deps, ...pinnedRequirements].join('\n');
+  return {
+    pinnedRequirements,
+    pinnedSummary,
+  };
 }
 
 function applyUpgrades(
   requirements: Requirement[],
   lowerCasedUpgrades: { [upgradeFrom: string]: string },
-) {
+): { updatedRequirements: string[]; updatedSummary: string } {
+  let updatedSummary = '';
   const updatedRequirements: string[] = requirements.map(
     ({
       name,
@@ -110,13 +121,15 @@ function applyUpgrades(
       if (!upgrade) {
         return originalText;
       }
-
       const newVersion = lowerCasedUpgrades[upgrade].split('@')[1];
-      return `${originalName}${versionComparator}${newVersion}${
-        extras ? extras : ''
-      }`;
+      const updatedRequirement = `${originalName}${versionComparator}${newVersion}`;
+      updatedSummary += `Upgraded ${originalName}${versionComparator}${version} to ${updatedRequirement}`;
+      return `${updatedRequirement}${extras ? extras : ''}`;
     },
   );
 
-  return updatedRequirements;
+  return {
+    updatedRequirements,
+    updatedSummary,
+  };
 }
