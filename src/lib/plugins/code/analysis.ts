@@ -41,7 +41,9 @@ async function getCodeAnalysis(root: string, options: Options): Promise<Log> {
   return result.sarifResults!;
 }
 
-function severityToAnalysisSeverity(severity: SEVERITY): AnalysisSeverity {
+function severityToAnalysisSeverity(
+  severity: SEVERITY,
+): codeClient.AnalysisSeverity {
   if (severity === SEVERITY.CRITICAL) {
     throw new FeatureNotSupportedBySnykCodeError(SEVERITY.CRITICAL);
   }
