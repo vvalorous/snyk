@@ -20,7 +20,7 @@ export async function testEcosystem(
   // to accept flows that act differently in the testDependencies step
   if (plugin.test) {
     const { readableResult: res } = await plugin.test(paths, options);
-    console.log(res)
+    console.log(res);
     return TestCommandResult.createHumanReadableTestCommandResult(res, '');
   }
   const scanResultsByPath: { [dir: string]: ScanResult[] } = {};
