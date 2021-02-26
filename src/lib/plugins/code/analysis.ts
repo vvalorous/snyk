@@ -11,27 +11,35 @@ export async function getCodeAnalysisAndParseResults(
   root: string,
   options: Options,
 ): Promise<Log> {
-  let currentLabel = ''
-  await spinner.clearAll()
-  codeClient.emitter.on('scanFilesProgress', async(processed: number) => {
-    const spinnerLbl =`Indexed ${processed} files`;
+  let currentLabel = '';
+  await spinner.clearAll();
+  codeClient.emitter.on('scanFilesProgress', async (processed: number) => {
+    const spinnerLbl = `Indexed ${processed} files`;
     spinner.clear<void>(currentLabel)();
-    currentLabel = spinnerLbl
+    currentLabel = spinnerLbl;
     await spinner(spinnerLbl);
   });
-  codeClient.emitter.on('uploadBundleProgress', async(processed: number, total: number) => {
-    const spinnerLbl = `Upload bundle progress: ${processed}/${total}`;
+  codeClient.emitter.on(
+    'uploadBundleProgress',
+    async (processed: number, total: number) => {
+      const spinnerLbl = `Upload bundle progress: ${processed}/${total}`;
+      spinner.clear<void>(currentLabel)();
+      currentLabel = spinnerLbl;
+      await spinner(spinnerLbl);
+    },
+  );
+  codeClient.emitter.on('analyseProgress', async (data: any) => {
+    const spinnerLbl = `Analysis ${data.status}: ${Math.round(
+      data.progress * 100,
+    )}%`;
     spinner.clear<void>(currentLabel)();
-    currentLabel = spinnerLbl
-    await spinner(spinnerLbl);
-  });
-  codeClient.emitter.on('analyseProgress', async(data: any) => {
-    const spinnerLbl = `Analysis ${data.status}: ${Math.round(data.progress *100)}%`;
-    spinner.clear<void>(currentLabel)();
-    currentLabel = spinnerLbl
+    currentLabel = spinnerLbl;
     await spinner(spinnerLbl);
   });
 
+  codeClient.emitter.on('sendError', (error) => {
+    throw error;
+  });
   const codeAnalysis = await getCodeAnalysis(root, options);
   spinner.clearAll();
   return parseSecurityResults(codeAnalysis);

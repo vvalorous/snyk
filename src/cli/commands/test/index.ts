@@ -112,16 +112,12 @@ async function test(...args: MethodArgs): Promise<TestCommandResult> {
 
   const ecosystem = getEcosystemForTest(options);
   if (ecosystem) {
-    try {
-      const commandResult = await testEcosystem(
-        ecosystem,
-        args as string[],
-        options,
-      );
-      return commandResult;
-    } catch (error) {
-      throw new Error(error);
-    }
+    const commandResult = await testEcosystem(
+      ecosystem,
+      args as string[],
+      options,
+    );
+    return commandResult;
   }
 
   // Promise waterfall to test all other paths sequentially
