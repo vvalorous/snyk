@@ -1,4 +1,4 @@
-import { AnalysisSeverity, analyzeFolders } from '@snyk/code-client';
+import * as codeClient from '@snyk/code-client';
 import { Log, ReportingDescriptor, Result } from 'sarif';
 import { SEVERITY } from '../../snyk-test/legacy';
 import { api } from '../../api-token';
@@ -8,12 +8,29 @@ import { Options } from '../../types';
 import { FeatureNotSupportedBySnykCodeError } from '../../errors/unsupported-feature-snyk-code-error';
 
 export async function getCodeAnalysisAndParseResults(
-  spinnerLbl: string,
   root: string,
   options: Options,
 ): Promise<Log> {
-  await spinner.clear<void>(spinnerLbl)();
-  await spinner(spinnerLbl);
+  let currentLabel = ''
+  await spinner.clearAll()
+  codeClient.emitter.on('scanFilesProgress', async(processed: number) => {
+    const spinnerLbl =`Indexed ${processed} files`;
+    spinner.clear<void>(currentLabel)();
+    currentLabel = spinnerLbl
+    await spinner(spinnerLbl);
+  });
+  codeClient.emitter.on('uploadBundleProgress', async(processed: number, total: number) => {
+    const spinnerLbl = `Upload bundle progress: ${processed}/${total}`;
+    spinner.clear<void>(currentLabel)();
+    currentLabel = spinnerLbl
+    await spinner(spinnerLbl);
+  });
+  codeClient.emitter.on('analyseProgress', async(data: any) => {
+    const spinnerLbl = `Analysis ${data.status}: ${Math.round(data.progress *100)}%`;
+    spinner.clear<void>(currentLabel)();
+    currentLabel = spinnerLbl
+    await spinner(spinnerLbl);
+  });
 
   const codeAnalysis = await getCodeAnalysis(root, options);
   spinner.clearAll();
@@ -26,11 +43,11 @@ async function getCodeAnalysis(root: string, options: Options): Promise<Log> {
 
   const severity = options.severityThreshold
     ? severityToAnalysisSeverity(options.severityThreshold)
-    : AnalysisSeverity.info;
+    : codeClient.AnalysisSeverity.info;
   const paths: string[] = [root];
   const sarif = true;
 
-  const result = await analyzeFolders({
+  const result = await codeClient.analyzeFolders({
     baseURL,
     sessionToken,
     severity,
